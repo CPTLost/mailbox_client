@@ -1,0 +1,132 @@
+menu "Mailbox Project Configuration"
+
+    menu "RTC Configuration"
+        config SCL_PIN
+            int "SCL Pin"
+            default 5
+
+        config SDA_PIN
+            int "SDA Pin"
+            default 6
+    endmenu
+
+    menu "ADC Configuration"
+        config ADC1_CHAN_SCALE
+            int "GPIO PIN for Scale input ADC1 Channel"
+            default 2
+            help
+                ADC_CHANNEL_2 is GPIO PIN 2
+
+        config ADC1_CHAN_BATTERY
+            int "GPIO PIN for Battery input ADC1 Channel"
+            default 3
+            help
+                ADC_CHANNEL_3 is GPIO PIN 3
+
+        config WAITING_TIME_BEFORE_ADC_READ_IN_S
+            int "Time in seconds to wait after wakeup before reading ADC Scale values"
+            default 10
+    endmenu
+
+    menu "LED Matrix Configuration"
+
+        config LED_MATRIX_GPIO
+            int "LED Matrix GPIO Pin"
+            default 8
+
+        config LED_MATRIX_SIZE
+            int "LED Matrix Size"
+            default 25
+    endmenu
+
+    menu "WiFi Configuration"
+        config ESP_WIFI_SSID
+            string "WiFi SSID"
+            default "myssid"
+            help
+                SSID (network name) for the example to connect to.
+
+        config ESP_WIFI_PASSWORD
+            string "WiFi Password"
+            default "mypassword"
+            help
+                WiFi password (WPA or WPA2) for the example to use.
+
+        config ESP_MAXIMUM_RETRY
+            int "Maximum retrys to connect to WiFi"
+            default 5
+    endmenu
+
+    menu "UDP Client Configuration"
+        config SERVER_IPV4_ADDR
+            string "IPV4 Address"
+            default "192.168.0.165"
+            help
+                IPV4 address to which the client will send data.
+
+        config SERVER_PORT
+            int "Port"
+            range 0 65535
+            default 3333
+            help
+                The remote port to which the client will send data.
+
+        config UDP_RECV_TIMEOUT_IN_SEC
+            int "UDP Receive Timeout in seconds"
+            default 5
+            help
+                Time to wait for answer from server in seconds.
+
+        config MAXIMUM_RETRY
+            int "Maximum retrys to send data"
+            default 3
+
+        config TIME_TO_SLEEP_AFTER_MAX_RETRYS_IN_S
+            int "Time to sleep after maximum of retries before retrying in seconds"
+            default 60
+            help
+                Time to sleep after maximum of retries is reached before retrying again.
+    endmenu
+
+    menu "GPIO wakeup enable"
+    config GPIO_WAKEUP
+        bool "Enable wakeup from GPIO"
+        default y
+        depends on SOC_GPIO_SUPPORT_DEEPSLEEP_WAKEUP
+        help
+            This option enables wake up from GPIO. Be aware that if you use low level to trigger wakeup, we strongly
+            recommend you to connect external pull-up resistance.
+
+        menu "GPIO wakeup configuration"
+            visible if GPIO_WAKEUP
+            config GPIO_BATTERY_WAKEUP_PIN
+                int "Enable Battery wakeup from GPIO pin"
+                default 1
+                range 0 7 if IDF_TARGET_ESP32C6
+                range 0 15 if IDF_TARGET_ESP32P4
+                range 0 5 if !IDF_TARGET_ESP32C6 && !IDF_TARGET_ESP32P4
+
+            config GPIO_BATTERY_WAKEUP_HIGH_LEVEL
+                bool "Enable GPIO high-level wakeup for Battery wakeup pin"
+                default y
+                help
+                    This option set the gpio wake-up trigger signal, In deep sleep, only high or low level wake-up is
+                    supported. If this option is enabled, it is a high level wake up, otherwise it is a low level wake up.
+                
+            config GPIO_SCALE_WAKEUP_PIN
+                int "Enable Scale wakeup from GPIO pin"
+                default 0
+                range 0 7 if IDF_TARGET_ESP32C6
+                range 0 15 if IDF_TARGET_ESP32P4
+                range 0 5 if !IDF_TARGET_ESP32C6 && !IDF_TARGET_ESP32P4
+
+            config GPIO_SCALE_WAKEUP_HIGH_LEVEL
+                bool "Enable GPIO high-level wakeup for Scale wakeup pin"
+                default y
+                help
+                    This option set the gpio wake-up trigger signal, In deep sleep, only high or low level wake-up is
+                    supported. If this option is enabled, it is a high level wake up, otherwise it is a low level wake up.
+        endmenu
+    endmenu
+
+endmenu
