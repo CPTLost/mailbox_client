@@ -1,35 +1,56 @@
-| Supported Targets | ESP32 | ESP32-C2 | ESP32-C3 | ESP32-C6 | ESP32-H2 | ESP32-P4 | ESP32-S2 | ESP32-S3 |
-| ----------------- | ----- | -------- | -------- | -------- | -------- | -------- | -------- | -------- |
+# Mailbox_client
 
-# _Sample project_
+Drei Haupt-Tasks:
 
-(See the README.md file in the upper level 'examples' directory for more information about examples.)
+•	Deep Sleep
 
-This is the simplest buildable example. The example is used by command `idf.py create-project`
-that copies the project to user specified path and set it's name. For more information follow the [docs page](https://docs.espressif.com/projects/esp-idf/en/latest/api-guides/build-system.html#start-a-new-project)
+•	Get Data
+
+•	UDP-Client
+
+## Main
+
+Als erstes wird der Get Data Task created, dieser wartet auf ein Notify.
+Als nächstes wird der UDP-Client Task created, dieser versucht sich mit dem Netzwerk zu verbinden und wartet anschließen auf ein Notify.
+Als letztes wird der Deep Sleep Task created, dieser beginnt dann mit dem Programmdurchlauf.
+
+## Deep Sleep
+
+Das Erste, was das Programm macht, ist den Deep Sleep Task laufen zu lassen. Die anderen Tasks werden zwar zuerst created, jedoch warten sie auf TaskNotifys.
+Der Deep Sleep Task checkt als erstes den wakeup cause. Je nach wakeup cause benachrichtigt er den zugehörigen Task. Anschließend wartet er bis man ihm wieder Bescheid gibt, dass es Zeit wird, schlafen zu gehen.
+Vorgehensweisen für folgende Wakeup Causes:
+
+•	Undefined:  ESP geht schlafen (normalerweise nach einem Reset bzw. Programm Flash)
+
+•	GPIO Wakeup:  GPIO Wakeup Task wird ausgeführt (Taskhandler wird als Parameter mitgegeben)
+
+•	Timer Wakeup:  Timer Wakeup Task wird ausgeführt (Taskhandler wird als Parameter mitgegeben)
+
+Wenn der Task auf eine Benachrichtigung warten, um schlafen zu gehen, analysiert er den TaskNotify-Value. Falls dieser von null verschieden ist, stellt der Deep Sleep Task einen Timer der den ESP wieder aufweckt. Die Zeit, die der ESP im Deep Sleep verbringt, entspricht dem TaskNotify-Value in Sekunden. Der Timer wird gestellt, falls es Übertragungsprobleme gegeben hat -> später erneut Versuchen.
+
+## Get Data
+
+Der get_data_task wird vom Deep Sleep Task aufgerufen. Als TaskNotify-Value wird der Wakeup Cause mitgegeben. Es wird folgendes unterschieden:
+
+•	Scale Wakeup:
+
+Der ESP wurde durch eine Massenveränderung auf der Waage aufgeweckt -> ADC Messungen werden durchgeführt um Gewicht und Akkuladung zu erhalten und zusätzlich die Zeit vom RTC Modul erfragt. Diese werden in einem struct mit dem Namen udp_data_t geschrieben
 
 
+•	Timer Wakeup:
 
-## How to use example
-We encourage the users to use the example as a template for the new projects.
-A recommended way is to follow the instructions on a [docs page](https://docs.espressif.com/projects/esp-idf/en/latest/api-guides/build-system.html#start-a-new-project).
+Es wird dieselbe Prozedur wie bei einem Scale wakeup durchlaufen jedoch mit einem Unterschied. Die Zeit wird nicht erneut abgefragt. Dadurch behält man die ursprüngliche Zeit des aller ersten Aufwachens des ESPs.
+Anschließen wird der UDP-Client Task benachrichtigt.
 
-## Example folder contents
 
-The project **sample_project** contains one source file in C language [main.c](main/main.c). The file is located in folder [main](main).
+## UDP-Client
 
-ESP-IDF projects are built using CMake. The project build configuration is contained in `CMakeLists.txt`
-files that provide set of directives and instructions describing the project's source files and targets
-(executable, library, or both). 
+Beim erstmaligen Ausführen (=beim xTaskcreate) des Tasks wird versucht eine WLAN-Verbindung zum Heimnetzwerk aufzubauen. Dies wird x-mal versucht bevor der ESP erneut in Deep Sleep versetzt wird, um es später erneut zu versuchen (Anzahl der Versuche in SDK-Config einstellbar).
 
-Below is short explanation of remaining files in the project folder.
+Wenn die Verbindung erfolgreich war wird ein socket erstellt mit den entsprechenden Konfigurationen und anschließen gelangt das Programm in eine Endlosschleife. 
 
-```
-├── CMakeLists.txt
-├── main
-│   ├── CMakeLists.txt
-│   └── main.c
-└── README.md                  This is the file you are currently reading
-```
-Additionally, the sample project contains Makefile and component.mk files, used for the legacy Make based build system. 
-They are not used or needed when building with CMake and idf.py.
+In dieser Endlosschleife befindet sich als erstes ein TaskNotifyWait. Sobald der Get Data Task Daten erlangt hat, benachrichtigt er diesen UDP-Client. Folglich werden die Daten an den definierten UDP-Server gesendet.
+
+Es wird wieder eine bestimmte Anzahl an Versuchen getätigt, die Daten zu senden und zusätzlich eine gewisse Zeit auf eine Antwort zu warten. Falls nie die erwartete Antwort erhalten wird, wird der Deep Sleep Task mit einem bestimmten Notify-Value  benachrichtig ->  später erneut versuchen.
+
+Und falls alles erfolgreich war wird der Deep Sleep Task ohne Notify-Value benachrichtigt, daher schläft der ESP bis zum nächsten GPIO wakeup weiter und beginnt dann das Selbe Spielt von vorne.
